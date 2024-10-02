@@ -5,12 +5,11 @@ app = Flask(__name__)
 # Маршрут для вебхуков
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    # Попробуем получить JSON из запроса
     data = request.json
     if not data:
         return jsonify({"error": "No JSON received"}), 400
 
-    # Проверим наличие ключа "action"
+    # Проверяем наличие ключа "action" в данных
     if "action" in data:
         action = data["action"]
         if action == "buy":
