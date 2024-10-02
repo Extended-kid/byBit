@@ -1,21 +1,19 @@
-from flask import Flask, request, jsonify
 import logging
+from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-# Настраиваем логирование
+# Настройка логирования
 logging.basicConfig(level=logging.INFO)
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    # Логируем полученные данные
     data = request.json
     logging.info(f"Received data: {data}")
 
     if not data:
         return jsonify({"error": "No JSON received"}), 400
 
-    # Проверяем наличие ключа "action"
     if "action" in data:
         action = data["action"]
         if action == "buy":
