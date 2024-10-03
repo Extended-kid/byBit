@@ -198,19 +198,20 @@ def close_all_positions(symbol):
 @app.route('/webhook', methods=['POST'])
 def webhook():
     data = request.json
-    # Проверяем, что в вебхуке есть необходимые поля
+    print(f"Received webhook data: {data}")  # Отладка: выводим данные вебхука
+
     if "action" not in data or "pair" not in data:
         return jsonify({"error": "Missing required fields: 'action' or 'pair'"}), 400
     
     action = data["action"].lower()
     pair = data["pair"]
 
-    # Выполняем ордер на покупку или закрытие всех позиций в зависимости от действия
+    # Выполняем ордер на покупку или продажу в зависимости от действия
     if action == "buy":
-        response = place_order(pair, "Buy")  # Открываем ордер на покупку
+        response = place_order(pair, "Buy")
         return jsonify(response)
     elif action == "sell":
-        response = close_all_positions(pair)  # Закрываем все открытые позиции на этой паре
+        response = place_order(pair, "Sell")
         return jsonify(response)
     else:
         return jsonify({"error": "Unknown action"}), 400
