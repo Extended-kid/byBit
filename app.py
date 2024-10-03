@@ -9,25 +9,18 @@ logging.basicConfig(level=logging.INFO)
 @app.route('/webhook', methods=['POST'])
 def webhook():
     data = request.json
-    logging.info(f"Received data: {data}")
-
-    if not data:
-        return jsonify({"error": "No JSON received"}), 400
-
-    if "action" in data:
-        action = data["action"]
-        if action == "buy":
-            logging.info("Buy action received")
-            return jsonify({"message": "Buy action received!"}), 200
-        elif action == "sell":
-            logging.info("Sell action received")
-            return jsonify({"message": "Sell action received!"}), 200
-        else:
-            logging.info("Unknown action")
-            return jsonify({"error": "Unknown action"}), 400
+    action = data.get('action')
+    pair = data.get('pair')
+    
+    if action == 'buy':
+        # Логика для открытия длинной позиции (buy)
+        return jsonify({"message": f"Long position opened for {pair}"}), 200
+    elif action == 'sell':
+        # Логика для закрытия позиции или открытия короткой позиции (sell)
+        return jsonify({"message": f"Short position opened or closed for {pair}"}), 200
     else:
-        logging.info("Invalid JSON format")
-        return jsonify({"error": "Invalid JSON format"}), 400
+        return jsonify({"error": "Unknown action"}), 400
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
