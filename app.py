@@ -26,10 +26,18 @@ def get_price(symbol):
     
     if response.status_code == 200:
         data = response.json()
-        # Цена закрытия последней свечи
-        return float(data['result']['list'][0][4])
+        # Проверяем наличие ключа 'list' в ответе
+        if 'result' in data and 'list' in data['result']:
+            # Цена закрытия последней свечи
+            closing_price = float(data['result']['list'][0][4])  # Используем индекс 4 для закрытия свечи
+            return closing_price
+        else:
+            print(f"Unexpected response format: {data}")
+            return None
     else:
+        print(f"Failed to fetch price for {symbol}, status code: {response.status_code}")
         return None
+
 
 # Функция для получения количества десятичных знаков для символа и минимального количества контрактов
 def get_precision_and_min_qty(symbol):
