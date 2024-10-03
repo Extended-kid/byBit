@@ -15,6 +15,10 @@ api_secret = 'Fa4yT9DFlxb0DEL1MHuKwXLFFy4OddQ7XKHR'
 FIXED_AMOUNT_USD = 10
 FIXED_LEVERAGE = 5
 
+# Функция для создания подписи
+def create_signature(query_string):
+    return hmac.new(api_secret.encode(), query_string.encode(), hashlib.sha256).hexdigest()
+
 # Функция для получения текущей цены актива
 def get_price(symbol):
     base_url = "https://api-demo.bybit.com"
@@ -65,7 +69,7 @@ def set_leverage(symbol, leverage):
     }
 
     query_string = f'{timestamp}{api_key}{recv_window}{json.dumps(body)}'
-    signature = hmac.new(api_secret.encode(), query_string.encode(), hashlib.sha256).hexdigest()
+    signature = create_signature(query_string)
 
     headers = {
         'X-BAPI-SIGN': signature,
@@ -122,7 +126,7 @@ def place_order(symbol, side):
 
     # Создаем строку запроса для подписи
     query_string = f'{timestamp}{api_key}{recv_window}{json.dumps(body)}'
-    signature = hmac.new(api_secret.encode(), query_string.encode(), hashlib.sha256).hexdigest()
+    signature = create_signature(query_string)
 
     # Устанавливаем заголовки
     headers = {
@@ -142,6 +146,46 @@ def place_order(symbol, side):
     else:
         return {"error": f"Failed to place order, status code: {response.status_code}", "details": response.text}
 
+# Функция для закрытия всех позиций по символу
+def close_all_positions(symbol):
+    base_url = "https://api-demo.bybit.com"
+    timestamp = str(int(time.time() * 1000))
+    recv_window = "10000"
+
+    # Тело запроса для закрытия всех позиций
+    body = {
+        "category": "linear",
+        "symbol": symbol,
+        "side": "Sell",  # Закрываем все позиции
+        "orderType": "Market",
+        "qty": "0",  # 0 для закрытия всех позиций
+        "timeInForce": "GTC",
+        "timestamp": timestamp,
+        "recvWindow": recv_window
+    }
+
+    # Создаем строку запроса для подписи
+    query_string = f'{timestamp}{api_key}{recv_window}{json.dumps(body)}'
+    signature = create_signature(query_string)
+
+    # Устанавливаем заголовки
+    headers = {
+        'X-BAPI-SIGN': signature,
+        'X-BAPI-API-KEY': api_key,
+        'X-BAPI-TIMESTAMP': timestamp,
+        'X-BAPI-RECV-WINDOW': recv_window,
+        'Content-Type': 'application/json'
+    }
+
+    # Отправляем запрос на закрытие всех позиций
+    response = requests.post(f"{base_url}/v5/order/create", headers=headers, data=json.dumps(body))
+    
+    # Проверяем статус ответа
+    if response.status_code == 200:
+        return response.json()
+    else:
+        return {"error": f"Failed to close positions, status code: {response.status_code}", "details": response.text}
+
 # Обработчик вебхуков
 @app.route('/webhook', methods=['POST'])
 def webhook():
@@ -153,12 +197,12 @@ def webhook():
     action = data["action"].lower()
     pair = data["pair"]
 
-    # Выполняем ордер на покупку или продажу в зависимости от действия
+    # Выполняем ордер на покупку или закрытие всех позиций в зависимости от действия
     if action == "buy":
         response = place_order(pair, "Buy")  # Открываем ордер на покупку
         return jsonify(response)
     elif action == "sell":
-        response = place_order(pair, "Sell")  # Открываем ордер на продажу
+        response = close_all_positions(pair)  # Закрываем все открытые позиции на этой паре
         return jsonify(response)
     else:
         return jsonify({"error": "Unknown action"}), 400
