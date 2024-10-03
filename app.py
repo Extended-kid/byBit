@@ -27,17 +27,26 @@ def get_price(symbol):
     else:
         return None
 
-# Функция для получения количества десятичных знаков для символа
-def get_precision(symbol):
+# Функция для получения количества десятичных знаков для символа и минимального количества контрактов
+def get_precision_and_min_qty(symbol):
     base_url = "https://api-demo.bybit.com"
     response = requests.get(f"{base_url}/v5/market/instruments-info?category=linear&symbol={symbol}")
     
     if response.status_code == 200:
         data = response.json()
-        # Возвращаем количество десятичных знаков для количества (qtyStep)
-        return int(data['result']['list'][0]['lotSizeFilter']['qtyStep'].rstrip('0').split('.')[-1])
+        # Получаем точность для количества контрактов
+        qty_step = data['result']['list'][0]['lotSizeFilter']['qtyStep']
+        if '.' in qty_step:
+            precision = len(qty_step.split('.')[1])
+        else:
+            precision = 0
+
+        # Получаем минимальное количество контрактов
+        min_qty = float(data['result']['list'][0]['lotSizeFilter']['minOrderQty'])
+
+        return precision, min_qty
     else:
-        return None
+        return None, None
 
 # Функция для установки плеча
 def set_leverage(symbol, leverage):
@@ -81,13 +90,17 @@ def place_order(symbol, side):
     if price is None:
         return {"error": "Failed to fetch price for the symbol."}
     
-    # Получаем количество десятичных знаков для символа
-    precision = get_precision(symbol)
-    if precision is None:
-        return {"error": "Failed to fetch precision for the symbol."}
+    # Получаем точность и минимальное количество контрактов
+    precision, min_qty = get_precision_and_min_qty(symbol)
+    if precision is None or min_qty is None:
+        return {"error": "Failed to fetch precision or min qty for the symbol."}
 
     # Рассчитываем количество контрактов
     qty = (FIXED_AMOUNT_USD * FIXED_LEVERAGE) / price
+
+    # Если рассчитанное количество контрактов меньше минимального, устанавливаем минимальное
+    if qty < min_qty:
+        qty = min_qty
 
     # Округляем количество контрактов в соответствии с precision
     qty = round(qty, precision)
