@@ -194,7 +194,6 @@ def close_all_positions(symbol):
     else:
         return {"error": f"Failed to close positions, status code: {response.status_code}", "details": response.text}
 
-# Обработчик вебхуков
 @app.route('/webhook', methods=['POST'])
 def webhook():
     data = request.json
@@ -206,15 +205,20 @@ def webhook():
     action = data["action"].lower()
     pair = data["pair"]
 
+    # Удаляем суффикс .P, если он присутствует
+    if pair.endswith(".P"):
+        pair = pair.replace(".P", "")
+
     # Выполняем ордер на покупку или продажу в зависимости от действия
     if action == "buy":
-        response = place_order(pair, "Buy")
+        response = place_order(pair, "Buy")  # Открываем ордер на покупку
         return jsonify(response)
     elif action == "sell":
-        response = place_order(pair, "Sell")
+        response = place_order(pair, "Sell")  # Открываем ордер на продажу
         return jsonify(response)
     else:
         return jsonify({"error": "Unknown action"}), 400
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
