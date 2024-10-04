@@ -160,13 +160,20 @@ def close_all_positions(symbol):
     timestamp = str(int(time.time() * 1000))
     recv_window = "10000"
 
+    # Получаем количество открытых контрактов
+    qty = get_open_position_qty(symbol)
+    
+    if qty == 0:
+        return {"error": "No open positions to close."}
+
     # Тело запроса для закрытия всех позиций
     body = {
         "category": "linear",
         "symbol": symbol,
-        "side": "Sell",  # Закрываем все позиции
+        "side": "Sell",  # Закрываем длинную позицию (если она есть)
         "orderType": "Market",
-        "qty": "0",  # 0 для закрытия всех позиций
+        "qty": str(qty),  # Количество контрактов для закрытия
+        "reduceOnly": True,  # Используем reduce_only для закрытия
         "timeInForce": "GTC",
         "timestamp": timestamp,
         "recvWindow": recv_window
@@ -174,7 +181,7 @@ def close_all_positions(symbol):
 
     # Создаем строку запроса для подписи
     query_string = f'{timestamp}{api_key}{recv_window}{json.dumps(body)}'
-    signature = create_signature(query_string)
+    signature = hmac.new(api_secret.encode(), query_string.encode(), hashlib.sha256).hexdigest()
 
     # Устанавливаем заголовки
     headers = {
@@ -193,6 +200,7 @@ def close_all_positions(symbol):
         return response.json()
     else:
         return {"error": f"Failed to close positions, status code: {response.status_code}", "details": response.text}
+
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
