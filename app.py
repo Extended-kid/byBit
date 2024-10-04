@@ -160,19 +160,13 @@ def close_all_positions(symbol):
     timestamp = str(int(time.time() * 1000))
     recv_window = "10000"
 
-    # Получаем количество открытых контрактов
-    qty = get_open_position_qty(symbol)
-    
-    if qty == 0:
-        return {"error": "No open positions to close."}
-
     # Тело запроса для закрытия всех позиций
     body = {
         "category": "linear",
         "symbol": symbol,
         "side": "Sell",  # Закрываем длинную позицию (если она есть)
         "orderType": "Market",
-        "qty": str(qty),  # Количество контрактов для закрытия
+        "qty": "0",  # Количество контрактов для закрытия
         "reduceOnly": True,  # Используем reduce_only для закрытия
         "timeInForce": "GTC",
         "timestamp": timestamp,
