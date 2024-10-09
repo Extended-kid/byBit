@@ -97,6 +97,8 @@ def place_order(symbol, side, qty):
     timestamp = str(int(time.time() * 1000))
     recv_window = "10000"
 
+    qty = float(qty)
+    
     # Получаем текущую цену актива
     price = get_price(symbol)
     if price is None:
