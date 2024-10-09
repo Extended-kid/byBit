@@ -13,7 +13,7 @@ api_secret = 'Fa4yT9DFlxb0DEL1MHuKwXLFFy4OddQ7XKHR'
 
 # Фиксированные значения для размера сделки и плеча
 FIXED_AMOUNT_USD = 10
-FIXED_LEVERAGE = 5
+FIXED_LEVERAGE = 1
 
 # Функция для создания подписи
 def create_signature(query_string):
@@ -92,7 +92,7 @@ def set_leverage(symbol, leverage):
     return response.json()
 
 # Функция для создания ордера на Bybit
-def place_order(symbol, side):
+def place_order(symbol, side, qty):
     base_url = "https://api-demo.bybit.com"
     timestamp = str(int(time.time() * 1000))
     recv_window = "10000"
@@ -106,9 +106,6 @@ def place_order(symbol, side):
     precision, min_qty = get_precision_and_min_qty(symbol)
     if precision is None or min_qty is None:
         return {"error": "Failed to fetch precision or min qty for the symbol."}
-
-    # Рассчитываем количество контрактов
-    qty = (FIXED_AMOUNT_USD * FIXED_LEVERAGE) / price
 
     # Если рассчитанное количество контрактов меньше минимального, устанавливаем минимальное
     if qty < min_qty:
@@ -160,40 +157,53 @@ def close_all_positions(symbol):
     timestamp = str(int(time.time() * 1000))
     recv_window = "10000"
 
-    # Тело запроса для закрытия всех позиций
-    body = {
-        "category": "linear",
-        "symbol": symbol,
-        "side": "Sell",  # Закрываем длинную позицию (если она есть)
-        "orderType": "Market",
-        "qty": "0",  # Количество контрактов для закрытия
-        "reduceOnly": True,  # Используем reduce_only для закрытия
-        "timeInForce": "GTC",
-        "timestamp": timestamp,
-        "recvWindow": recv_window
-    }
+    while True:
+        # Получаем количество открытых контрактов
+        qty = get_open_position_qty(symbol)
+        
+        if qty == 0:
+            return {"message": "All positions closed successfully."}
 
-    # Создаем строку запроса для подписи
-    query_string = f'{timestamp}{api_key}{recv_window}{json.dumps(body)}'
-    signature = hmac.new(api_secret.encode(), query_string.encode(), hashlib.sha256).hexdigest()
+        # Округляем количество до минимального шага контракта
+        precision = get_precision(symbol)
+        qty = round(qty, precision)
 
-    # Устанавливаем заголовки
-    headers = {
-        'X-BAPI-SIGN': signature,
-        'X-BAPI-API-KEY': api_key,
-        'X-BAPI-TIMESTAMP': timestamp,
-        'X-BAPI-RECV-WINDOW': recv_window,
-        'Content-Type': 'application/json'
-    }
+        # Тело запроса для закрытия позиции
+        body = {
+            "category": "linear",
+            "symbol": symbol,
+            "side": "Sell",  # Закрываем длинные позиции
+            "orderType": "Market",
+            "qty": str(qty),  # Количество контрактов для закрытия
+            "reduceOnly": True,  # Используем reduce_only для закрытия
+            "timeInForce": "GTC",
+            "timestamp": timestamp,
+            "recvWindow": recv_window
+        }
 
-    # Отправляем запрос на закрытие всех позиций
-    response = requests.post(f"{base_url}/v5/order/create", headers=headers, data=json.dumps(body))
-    
-    # Проверяем статус ответа
-    if response.status_code == 200:
-        return response.json()
-    else:
-        return {"error": f"Failed to close positions, status code: {response.status_code}", "details": response.text}
+        # Создаем строку запроса для подписи
+        query_string = f'{timestamp}{api_key}{recv_window}{json.dumps(body)}'
+        signature = hmac.new(api_secret.encode(), query_string.encode(), hashlib.sha256).hexdigest()
+
+        # Устанавливаем заголовки
+        headers = {
+            'X-BAPI-SIGN': signature,
+            'X-BAPI-API-KEY': api_key,
+            'X-BAPI-TIMESTAMP': timestamp,
+            'X-BAPI-RECV-WINDOW': recv_window,
+            'Content-Type': 'application/json'
+        }
+
+        # Отправляем запрос на закрытие позиции
+        response = requests.post(f"{base_url}/v5/order/create", headers=headers, data=json.dumps(body))
+        
+        # Проверяем статус ответа
+        if response.status_code == 200:
+            result = response.json()
+            print(f"Position closed, result: {result}")
+        else:
+            return {"error": f"Failed to close positions, status code: {response.status_code}", "details": response.text}
+
 
 
 @app.route('/webhook', methods=['POST'])
@@ -206,6 +216,7 @@ def webhook():
     
     action = data["action"].lower()
     pair = data["pair"]
+    qty = data["qty"]
 
     # Удаляем суффикс .P, если он присутствует
     if pair.endswith(".P"):
@@ -213,10 +224,7 @@ def webhook():
 
     # Выполняем ордер на покупку или продажу в зависимости от действия
     if action == "buy":
-        response = place_order(pair, "Buy")  # Открываем ордер на покупку
-        return jsonify(response)
-    elif action == "sell":
-        response = place_order(pair, "Sell")  # Открываем ордер на продажу
+        response = place_order(pair, "Buy", qty)  # Открываем ордер на покупку
         return jsonify(response)
     else:
         return jsonify({"error": "Unknown action"}), 400
