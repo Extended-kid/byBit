@@ -13,7 +13,7 @@ api_secret = 'Fa4yT9DFlxb0DEL1MHuKwXLFFy4OddQ7XKHR'
 
 # Фиксированные значения для размера сделки и плеча
 FIXED_AMOUNT_USD = 10
-FIXED_LEVERAGE = 1
+FIXED_LEVERAGE = 3
 
 # Функция для создания подписи
 def create_signature(query_string):
